@@ -15,24 +15,26 @@ import os
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
+import random 
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 
 from pacman import Game
 from model.direction import Direction
+from rl_env.maze_distance import sample_tile_at_distance
 
 # Direction.RIGHT=0, LEFT=1, UP=2, DOWN=3 -- matches the enum exactly,
 # so action (an int 0-3) can be passed straight to Direction(action).
 
-MAX_STEPS_PER_EPISODE = 2000
+MAX_STEPS_PER_EPISODE = 800
 TRAINED_GHOST_INDEX = 0  # Blinky, per __load_ghosts ordering
 
 
 class PacmanGhostEnv(gym.Env):
     metadata = {"render_modes": []}
 
-    def __init__(self):
+    def __init__(self, curriculum_distance=None):
         super().__init__()
         self.action_space = spaces.Discrete(4)
 
@@ -49,7 +51,8 @@ class PacmanGhostEnv(gym.Env):
         self.ghost = None
         self.step_count = 0
         self._prev_lives = None
-        self._prev_score = None
+        self._prev_score = None 
+        self.curriculum_distance = curriculum_distance
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -60,7 +63,14 @@ class PacmanGhostEnv(gym.Env):
 
         # Let the player start "chasing" immediately rather than waiting
         # through the READY! counter -- speeds up training.
-        self.engine.player.set_to_chase()
+        self.engine.player.set_to_chase() 
+        
+        if self.curriculum_distance is not None:
+            row, col = sample_tile_at_distance(self.curriculum_distance)
+            tile_w = self.engine.tile_width
+            tile_h = self.engine.tile_height
+            self.ghost.location_x = col * tile_w + tile_w // 2
+            self.ghost.location_y = row * tile_h + tile_h // 2
 
         self.step_count = 0
         self._prev_lives = self.engine.player.lives
@@ -70,6 +80,12 @@ class PacmanGhostEnv(gym.Env):
 
     def step(self, action):
         direction = Direction(int(action))
+
+        # Give the player a random direction each tick, same as
+        # measure_catch_time.py -- otherwise the player barely moves at all,
+        # since engine.direction_command defaults to LEFT and nothing was
+        # ever updating it here.
+        self.engine.direction_command = random.choice(list(Direction))
 
         # Advance the game one tick, but override ONLY the trained ghost's
         # decision. The other three ghosts still call follow_target() with
@@ -98,16 +114,33 @@ class PacmanGhostEnv(gym.Env):
 
             self.engine.check_ghosts_and_player_collision()
         elif self.engine.player.is_eaten():
-            pass  # death animation state, no screen needed headlessly
+            # The real game finishes this transition inside
+            # play_death_animation(), which needs several ticks of a sprite
+            # animation to run before it decrements lives and resets the
+            # player. We don't need the animation headlessly, so we apply
+            # the same state change directly and immediately.
+            self.engine.player.set_to_ready()
+            self.engine.player.lives -= 1
 
         self.step_count += 1
 
+        lives_before = self._prev_lives  # captured before _compute_reward() updates it
         reward = self._compute_reward()
-        terminated = self.engine.player.lives <= -1
+        caught = self.engine.player.lives < lives_before
+
+        terminated = caught  # end the episode the moment a catch happens
         truncated = self.step_count >= MAX_STEPS_PER_EPISODE
 
-        return self._get_obs(), reward, terminated, truncated, {}
+        mode = "chase"
+        if self.ghost.is_scatter():
+            mode = "scatter"
+        elif self.ghost.is_frightened():
+            mode = "frightened"
+        elif self.ghost.is_eaten():
+            mode = "eaten"
 
+        return self._get_obs(), reward, terminated, truncated, {"caught": caught, "distance": self._distance_to_player(), "mode": mode}
+        
     def _compute_reward(self):
         reward = 0.0
 
