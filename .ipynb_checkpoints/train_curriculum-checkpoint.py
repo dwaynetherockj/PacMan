@@ -19,7 +19,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 from rl_env.pacman_ghost_env import PacmanGhostEnv
 from rl_env.maze_distance import REAL_BLINKY_DISTANCE
 
-STEPS_PER_PHASE = 10_000
+STEPS_PER_PHASE = 100_000
 NUM_PHASES = 6
 START_DISTANCE = 3
 STATS_TMP_PATH = "vecnormalize_tmp.pkl"

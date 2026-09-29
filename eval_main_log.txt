@@ -1,0 +1,5 @@
+nohup: ignoring input
+pygame 2.6.1 (SDL 2.28.4, Python 3.12.12)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+
+=== Spawn distance 3 tiles (50 episodes each) ===

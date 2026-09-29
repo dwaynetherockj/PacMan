@@ -1,0 +1,13 @@
+condition,distance,episodes,catches,catch_rate_pct,mean_steps_hits_only,mean_steps_misses_as_max
+random,3,50,21,42.0,262.1,574.1
+scripted,3,50,50,100.0,120.8,120.8
+random,6,50,7,14.0,504.1,758.6
+scripted,6,50,50,100.0,171.1,171.1
+random,9,50,1,2.0,759.0,799.2
+scripted,9,50,50,100.0,198.2,198.2
+random,13,50,0,0.0,nan,800.0
+scripted,13,50,50,100.0,251.0,251.0
+random,16,50,0,0.0,nan,800.0
+scripted,16,50,50,100.0,303.8,303.8
+random,19,50,0,0.0,nan,800.0
+scripted,19,50,49,98.0,351.6,360.6

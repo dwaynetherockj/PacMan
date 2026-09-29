@@ -1,0 +1,30 @@
+nohup: ignoring input
+Curriculum phases (maze-aware distances, tiles): [3, 6, 9, 13, 16, 19]
+
+=== Phase 1/6: spawn distance = 3 tiles ===
+Phase 1 catches in 10000 steps: 21
+
+=== Phase 2/6: spawn distance = 6 tiles ===
+Phase 2 catches in 10000 steps: 20
+
+=== Phase 3/6: spawn distance = 9 tiles ===
+Phase 3 catches in 10000 steps: 14
+
+=== Phase 4/6: spawn distance = 13 tiles ===
+Phase 4 catches in 10000 steps: 15
+
+=== Phase 5/6: spawn distance = 16 tiles ===
+Phase 5 catches in 10000 steps: 13
+
+=== Phase 6/6: spawn distance = 19 tiles ===
+Phase 6 catches in 10000 steps: 18
+
+--- Curriculum summary ---
+Distance   3 tiles: 21 catches
+Distance   6 tiles: 20 catches
+Distance   9 tiles: 14 catches
+Distance  13 tiles: 15 catches
+Distance  16 tiles: 13 catches
+Distance  19 tiles: 18 catches
+
+Model saved as ppo_blinky_curriculum.zip

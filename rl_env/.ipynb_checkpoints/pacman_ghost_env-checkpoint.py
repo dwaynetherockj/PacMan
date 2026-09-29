@@ -1,49 +1,43 @@
 """
-Gymnasium environment for training ONE ghost (Blinky, index 0) using RL.
+Gymnasium environment for training ONE ghost (index 0, Blinky) with RL.
 
-The other three ghosts keep running their normal built-in AI (follow_target()
-with no argument), so Baseline 1 behaviour is completely undisturbed. This
-environment only intercepts the trained ghost's decision each tick.
-
-Usage (manual sanity check, not real training):
-    env = PacmanGhostEnv()
-    obs, info = env.reset()
-    obs, reward, terminated, truncated, info = env.step(env.action_space.sample())
+Options:
+  curriculum_distance          spawn the ghost this many walking tiles from the player
+  solo_ghost=True              the other three ghosts do not move
+  scripted_trained_ghost=True  the trained ghost uses the original scripted AI
+  nav_obs=True                 add four open-direction flags (up, down, left, right)
+                               to the observation (8 values become 12)
 """
 
 import os
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
-import random 
+import random
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 
 from pacman import Game
 from model.direction import Direction
+from settings import DISTANCE_FACTOR
 from rl_env.maze_distance import sample_tile_at_distance
 
-# Direction.RIGHT=0, LEFT=1, UP=2, DOWN=3 -- matches the enum exactly,
-# so action (an int 0-3) can be passed straight to Direction(action).
-
 MAX_STEPS_PER_EPISODE = 800
-TRAINED_GHOST_INDEX = 0  # Blinky, per __load_ghosts ordering
+TRAINED_GHOST_INDEX = 0
 
 
 class PacmanGhostEnv(gym.Env):
     metadata = {"render_modes": []}
 
-    def __init__(self, curriculum_distance=None):
+    def __init__(self, curriculum_distance=None, solo_ghost=False,
+                 scripted_trained_ghost=False, nav_obs=False):
         super().__init__()
         self.action_space = spaces.Discrete(4)
-
-        # Observation: [ghost_x, ghost_y, player_x, player_y,
-        #               dx, dy, ghost_mode_code, player_lives]
-        # Kept simple and unnormalized to start -- normalize once you know
-        # real board dimensions, if training is unstable.
+        self.nav_obs = nav_obs
+        n_obs = 12 if nav_obs else 8
         self.observation_space = spaces.Box(
-            low=-np.inf, high=np.inf, shape=(8,), dtype=np.float32
+            low=-np.inf, high=np.inf, shape=(n_obs,), dtype=np.float32
         )
 
         self.game = None
@@ -51,8 +45,11 @@ class PacmanGhostEnv(gym.Env):
         self.ghost = None
         self.step_count = 0
         self._prev_lives = None
-        self._prev_score = None 
+        self._prev_score = None
+        self._catcher = None
         self.curriculum_distance = curriculum_distance
+        self.solo_ghost = solo_ghost
+        self.scripted_trained_ghost = scripted_trained_ghost
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -61,10 +58,9 @@ class PacmanGhostEnv(gym.Env):
         self.engine = self.game.game_engine
         self.ghost = self.engine.ghosts[TRAINED_GHOST_INDEX]
 
-        # Let the player start "chasing" immediately rather than waiting
-        # through the READY! counter -- speeds up training.
-        self.engine.player.set_to_chase() 
-        
+        # Skip the READY! counter to speed up training.
+        self.engine.player.set_to_chase()
+
         if self.curriculum_distance is not None:
             row, col = sample_tile_at_distance(self.curriculum_distance)
             tile_w = self.engine.tile_width
@@ -75,22 +71,16 @@ class PacmanGhostEnv(gym.Env):
         self.step_count = 0
         self._prev_lives = self.engine.player.lives
         self._prev_score = self.engine.level.score
+        self._catcher = None
 
         return self._get_obs(), {}
 
     def step(self, action):
         direction = Direction(int(action))
 
-        # Give the player a random direction each tick, same as
-        # measure_catch_time.py -- otherwise the player barely moves at all,
-        # since engine.direction_command defaults to LEFT and nothing was
-        # ever updating it here.
+        # Random player movement (engine.direction_command otherwise never changes).
         self.engine.direction_command = random.choice(list(Direction))
 
-        # Advance the game one tick, but override ONLY the trained ghost's
-        # decision. The other three ghosts still call follow_target() with
-        # no argument via the normal move_ghosts() path -- we replicate that
-        # loop here so we can intercept just one ghost.
         self.engine.render_level()
         self.engine.draw_misc()
         self.engine.render_ghosts()
@@ -108,17 +98,19 @@ class PacmanGhostEnv(gym.Env):
 
             for i, g in enumerate(self.engine.ghosts):
                 if i == TRAINED_GHOST_INDEX:
-                    g.follow_target(action_direction=direction)
-                else:
+                    if self.scripted_trained_ghost:
+                        g.follow_target()
+                    else:
+                        g.follow_target(action_direction=direction)
+                elif not self.solo_ghost:
                     g.follow_target()
 
             self.engine.check_ghosts_and_player_collision()
+            if self.engine.player.is_eaten():
+                self._catcher = self._find_catcher()
         elif self.engine.player.is_eaten():
-            # The real game finishes this transition inside
-            # play_death_animation(), which needs several ticks of a sprite
-            # animation to run before it decrements lives and resets the
-            # player. We don't need the animation headlessly, so we apply
-            # the same state change directly and immediately.
+            # The real game finishes this inside play_death_animation(), which
+            # needs several sprite frames. We apply the same state change directly.
             self.engine.player.set_to_ready()
             self.engine.player.lives -= 1
 
@@ -139,18 +131,39 @@ class PacmanGhostEnv(gym.Env):
         elif self.ghost.is_eaten():
             mode = "eaten"
 
-        return self._get_obs(), reward, terminated, truncated, {"caught": caught, "distance": self._distance_to_player(), "mode": mode}
-        
+        info = {
+            "caught": caught,
+            "distance": self._distance_to_player(),
+            "mode": mode,
+            "caught_by": self._catcher if caught else None,
+        }
+        return self._get_obs(), reward, terminated, truncated, info
+
+    def _find_catcher(self):
+        """Name of the ghost that caught the player (closest one inside the
+        game's catch box that is in chase or scatter mode)."""
+        px, py = self.engine.player.location_x, self.engine.player.location_y
+        best_name, best_dist = None, float("inf")
+        for g in self.engine.ghosts:
+            if not (g.is_chasing() or g.is_scatter()):
+                continue
+            dx, dy = abs(g.location_x - px), abs(g.location_y - py)
+            if dx < DISTANCE_FACTOR and dy < DISTANCE_FACTOR:
+                d = dx * dx + dy * dy
+                if d < best_dist:
+                    best_name, best_dist = type(g).__name__, d
+        return best_name
+
     def _compute_reward(self):
         reward = 0.0
 
         lives_now = self.engine.player.lives
         if lives_now < self._prev_lives:
-            reward += 10.0  # ghost caught the player
+            # Reward only catches made by the trained ghost itself.
+            if self._catcher == type(self.ghost).__name__:
+                reward += 10.0
         self._prev_lives = lives_now
 
-        # Small shaping reward: closing distance on the player each tick.
-        # Encourages proximity-seeking behaviour even between catches.
         dist = self._distance_to_player()
         reward += -0.001 * dist  # closer = less negative = better
 
@@ -175,12 +188,18 @@ class PacmanGhostEnv(gym.Env):
         elif self.ghost.is_eaten():
             mode_code = 3.0
 
-        return np.array([
-            gx, gy, px, py,
-            gx - px, gy - py,
-            mode_code,
-            float(self.engine.player.lives),
-        ], dtype=np.float32)
+        values = [gx, gy, px, py, gx - px, gy - py, mode_code,
+                  float(self.engine.player.lives)]
+
+        if self.nav_obs:
+            # The ghosts share one Turns object (Blinky and Pinky visibly do in
+            # level_content_initializer.py), so refresh the flags for THIS
+            # ghost's current position before reading them.
+            self.ghost._check_borders_ahead()
+            t = self.ghost.turns
+            values += [float(t.up), float(t.down), float(t.left), float(t.right)]
+
+        return np.array(values, dtype=np.float32)
 
     def _get_start_trigger(self):
         from settings import START_TRIGGER
