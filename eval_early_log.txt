@@ -28,3 +28,14 @@ solo_nav       catch rate  60.0%   steps to catch  289.8 (hits only)    493.9 (m
 
 === Spawn distance 16 tiles (50 episodes each) ===
 random         catch rate   0.0%   steps to catch    nan (hits only)    800.0 (misses count as 800)
+scripted       catch rate 100.0%   steps to catch  303.8 (hits only)    303.8 (misses count as 800)
+solo_base      catch rate  50.0%   steps to catch  338.7 (hits only)    569.4 (misses count as 800)
+solo_nav       catch rate  58.0%   steps to catch  334.9 (hits only)    530.2 (misses count as 800)
+
+=== Spawn distance 19 tiles (50 episodes each) ===
+random         catch rate   0.0%   steps to catch    nan (hits only)    800.0 (misses count as 800)
+scripted       catch rate  98.0%   steps to catch  351.6 (hits only)    360.6 (misses count as 800)
+solo_base      catch rate  28.0%   steps to catch  347.4 (hits only)    673.3 (misses count as 800)
+solo_nav       catch rate  36.0%   steps to catch  340.3 (hits only)    634.5 (misses count as 800)
+
+Saved results_early.csv
