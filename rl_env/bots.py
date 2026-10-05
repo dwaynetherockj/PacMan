@@ -50,8 +50,9 @@ class SkillBot:
         self.skill = skill
         self.mistake_chance = 0.02 + 0.28 * (1 - skill)
         self.radius = round(2 + 8 * skill)
-        self.hunt_blue = skill >= 0.4          # medium and up will chase blue ghosts
-        self.max_hunts = 999 if skill >= 0.8 else 2  # strong: unlimited; medium: up to 2 per power pellet
+        self.hunt_blue = skill >= 0.4
+        self.max_hunts = 4 if skill >= 0.8 else 2   # strong bot no longer unlimited
+        self.hunt_range = 5                          # only chase a blue ghost within 5 walking tiles
         self.rng = random.Random(seed)
         self._tile = None
         self._choice = None
@@ -135,7 +136,7 @@ class SkillBot:
                 if (self.hunt_blue
                         and self._hunts_this_powerup < self.max_hunts):
                     field = bfs_field(board, [gt])
-                    if field.get(tile, 999) <= self.radius:
+                    if field.get(tile, 999) <= self.hunt_range:
                         blue_fields.append(field)
             else:
                 ghost_fields.append(bfs_field(board, [gt]))
