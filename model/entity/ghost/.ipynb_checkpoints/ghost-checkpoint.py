@@ -159,7 +159,7 @@ class Ghost(Entity):
             else:
                 self.scatter_counter_duration += 1
 
-        if self.enable_scatter_counter == SCATTER_ENABLE_TRIGGER and self.is_chasing():
+        if self.enable_scatter_counter >= SCATTER_ENABLE_TRIGGER and self.is_chasing():
             self.set_to_scatter()
             self.enable_scatter_counter = 0
         else:

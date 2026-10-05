@@ -127,7 +127,9 @@ class GameEngine:
             self.player.powerup_counter = self.level.power_up_limit
             self.__set_ghosts_state('frightened')
         if not self.player.powerup:
-            self.__set_ghosts_state('chase')
+            for ghost in self.ghosts:
+                if ghost.is_frightened():
+                    ghost.set_to_chase()
 
     def render_ghosts(self):
         for ghost in self.ghosts:
