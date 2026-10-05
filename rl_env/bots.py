@@ -53,15 +53,39 @@ class SkillBot:
         self.rng = random.Random(seed)
         self._tile = None
         self._choice = None
+        self._stuck_tile = None
+        self._stuck_count = 0
 
     def choose(self, engine):
         """Direction to request this tick. Re-decided only when the bot enters a new tile."""
         tw, th = engine.tile_width, engine.tile_height
         player = engine.player
         tile = (int(player.location_y // th), int(player.location_x // tw))
+
+        # Track how long we've been on the same tile.
+        if tile == self._stuck_tile:
+            self._stuck_count += 1
+        else:
+            self._stuck_tile = tile
+            self._stuck_count = 0
+
         if tile != self._tile or self._choice is None:
             self._tile = tile
             self._choice = self._decide(engine, tile, tw, th)
+
+        # If stuck on one tile too long, force a fresh random open direction.
+        if self._stuck_count > 30:
+            options = []
+            board = player.board
+            h, w = board.shape
+            for d, (dr, dc) in DIRS.items():
+                nr, nc = tile[0] + dr, tile[1] + dc
+                if 0 <= nr < h and 0 <= nc < w and board[nr][nc] in WALKABLE:
+                    options.append(d)
+            if options:
+                self._choice = self.rng.choice(options)
+            self._stuck_count = 0
+
         return self._choice
 
     def _decide(self, engine, tile, tw, th):

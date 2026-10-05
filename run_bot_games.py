@@ -19,8 +19,8 @@ from pacman import Game
 from rl_env.bots import SkillBot
 
 SKILLS = [0.0, 0.25, 0.5, 0.75, 1.0]
-GAMES_PER_SKILL = 6
-MAX_TICKS = 6000
+GAMES_PER_SKILL = 20
+MAX_TICKS = 10000
 
 
 def play(skill, seed):
@@ -44,7 +44,9 @@ def play(skill, seed):
         "score": engine.level.score,
         "lives_left": engine.player.lives,
         "dots_eaten": dots_at_start - dots_left,
+        "dots_left": dots_left,
         "game_over": bool(engine.game_over),
+        "board_cleared": dots_left == 0,
     }
 
 
@@ -55,10 +57,14 @@ def main():
         runs = [play(skill, seed=s) for s in range(GAMES_PER_SKILL)]
         avg = lambda key: sum(r[key] for r in runs) / len(runs)
         overs = sum(r["game_over"] for r in runs)
+        cleared = sum(r["board_cleared"] for r in runs)
+        timeouts = sum(1 for r in runs
+                       if not r["game_over"] and not r["board_cleared"])
         print(f"skill {skill:.2f}: survived {avg('ticks'):6.0f} ticks, "
               f"score {avg('score'):6.0f}, dots {avg('dots_eaten'):5.1f}, "
-              f"lives left {avg('lives_left'):4.1f}, game-overs {overs}/{len(runs)}",
-              flush=True)
+              f"dots left {avg('dots_left'):5.1f}, lives left {avg('lives_left'):4.1f}, "
+              f"game-overs {overs}/{len(runs)}, cleared {cleared}/{len(runs)}, "
+              f"ran out of clock {timeouts}/{len(runs)}", flush=True)
 
 
 if __name__ == "__main__":

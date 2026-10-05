@@ -1,0 +1,9 @@
+nohup: ignoring input
+pygame 2.6.1 (SDL 2.28.4, Python 3.12.12)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+20 games per skill level, up to 10000 ticks, original 4 ghosts, 3 lives
+skill 0.00: survived   5197 ticks, score   1640, dots 151.8, dots left  94.2, lives left -1.0, game-overs 20/20, cleared 0/20, ran out of clock 0/20
+skill 0.25: survived   7665 ticks, score   2284, dots 210.9, dots left  35.0, lives left -0.9, game-overs 19/20, cleared 4/20, ran out of clock 0/20
+skill 0.50: survived   8337 ticks, score   2500, dots 227.4, dots left  18.6, lives left -0.6, game-overs 14/20, cleared 10/20, ran out of clock 0/20
+skill 0.75: survived   9612 ticks, score   2766, dots 244.0, dots left   2.0, lives left -0.2, game-overs 10/20, cleared 16/20, ran out of clock 1/20
+skill 1.00: survived   9040 ticks, score   2500, dots 233.1, dots left  12.9, lives left -0.6, game-overs 13/20, cleared 7/20, ran out of clock 3/20
