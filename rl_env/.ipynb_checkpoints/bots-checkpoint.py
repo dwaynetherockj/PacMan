@@ -50,17 +50,27 @@ class SkillBot:
         self.skill = skill
         self.mistake_chance = 0.02 + 0.28 * (1 - skill)
         self.radius = round(2 + 8 * skill)
+        self.hunt_blue = skill >= 0.4          # medium and up will chase blue ghosts
+        self.max_hunts = 999 if skill >= 0.8 else 2  # strong: unlimited; medium: up to 2 per power pellet
         self.rng = random.Random(seed)
         self._tile = None
         self._choice = None
         self._stuck_tile = None
         self._stuck_count = 0
+        self._hunts_this_powerup = 0
+        self._was_powered = False
 
     def choose(self, engine):
         """Direction to request this tick. Re-decided only when the bot enters a new tile."""
         tw, th = engine.tile_width, engine.tile_height
         player = engine.player
         tile = (int(player.location_y // th), int(player.location_x // tw))
+
+        # Reset the hunt counter each time a new power pellet is eaten.
+        powered = bool(engine.player.powerup)
+        if powered and not self._was_powered:
+            self._hunts_this_powerup = 0
+        self._was_powered = powered
 
         # Track how long we've been on the same tile.
         if tile == self._stuck_tile:
@@ -85,6 +95,12 @@ class SkillBot:
             if options:
                 self._choice = self.rng.choice(options)
             self._stuck_count = 0
+        # Count a successful hunt when a ghost has just become "eaten".
+        if self.hunt_blue:
+            for g in engine.ghosts:
+                if g.is_eaten():
+                    self._hunts_this_powerup = min(self._hunts_this_powerup + 1,
+                                                   self.max_hunts)
 
         return self._choice
 
@@ -107,12 +123,22 @@ class SkillBot:
         dots = [tuple(map(int, rc)) for rc in np.argwhere((board == 1) | (board == 2))]
         dot_dist = bfs_field(board, dots) if dots else {}
 
-        ghost_fields = []
+        ghost_fields = []       # dangerous ghosts to avoid
+        blue_fields = []        # frightened ghosts to chase (if this bot hunts)
         for g in engine.ghosts:
-            if g.is_frightened() or g.is_eaten() or g.is_in_house():
-                continue  # harmless right now
+            if g.is_eaten() or g.is_in_house():
+                continue
             gt = (int(g.location_y // th), int(g.location_x // tw))
-            ghost_fields.append(bfs_field(board, [gt]))
+            if g.is_frightened():
+                # Only hunt if this bot hunts, hasn't used up its hunts, and
+                # the ghost is close enough to reach before blue runs out.
+                if (self.hunt_blue
+                        and self._hunts_this_powerup < self.max_hunts):
+                    field = bfs_field(board, [gt])
+                    if field.get(tile, 999) <= self.radius:
+                        blue_fields.append(field)
+            else:
+                ghost_fields.append(bfs_field(board, [gt]))
 
         best, best_score = None, float("-inf")
         for d, n in options:
@@ -120,7 +146,10 @@ class SkillBot:
             for field in ghost_fields:
                 gd = field.get(n, 999)
                 if gd < self.radius:
-                    score -= 10 * (self.radius - gd)  # nearer to a ghost is worse
+                    score -= 10 * (self.radius - gd)  # nearer to a dangerous ghost is worse
+            for field in blue_fields:
+                bd = field.get(n, 999)
+                score -= 3 * bd                       # nearer to a blue ghost is better (big pull)
             if d == OPPOSITE.get(current):
                 score -= 2                            # small push against turning back
             if score > best_score:
