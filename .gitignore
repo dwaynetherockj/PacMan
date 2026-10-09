@@ -5,3 +5,8 @@ logs/
 checkpoints/
 *.zip
 *.pkl
+.ipynb_checkpoints/
+*_log.txt
+*.log
+telemetry_sample.csv
+vecnormalize_tmp.pkl
