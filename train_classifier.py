@@ -87,6 +87,10 @@ def main():
                          key=lambda x: -x[1]):
         print(f"  {f:<18} {imp:.3f}")
 
+    import joblib
+    joblib.dump({"model": clf, "features": FEATURES}, "player_model.joblib")
+    print("\nSaved trained model to player_model.joblib")
+
 
 if __name__ == "__main__":
     main()
