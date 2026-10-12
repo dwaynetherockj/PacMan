@@ -18,6 +18,7 @@ class Ghost(Entity):
                  ghost_house_exit: Tuple,
                  velocity=DEFAULT_VELOCITY):
         super().__init__(center_position, turns, space_params, velocity)
+        self.speed_mult = 1.0   # adaptive controller scales this; 1.0 = normal
         # sprites
         self.assets = assets
         self.eaten_assets = eaten_assets
@@ -236,6 +237,7 @@ class Ghost(Entity):
                 self._move_up()
             else:
                 self._snap_to_center(self.space_params.tile_width, self.space_params.tile_height)
+                
 
     def _check_borders_ahead(self):
         # Checks next cell based on current entity position and direction and

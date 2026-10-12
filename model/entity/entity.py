@@ -38,21 +38,27 @@ class Entity:
     def render(self, screen):
         pass
 
+    def _step(self):
+        mult = getattr(self, "speed_mult", 1.0)
+        if mult <= 0 or mult != mult:   # guard against 0 or NaN
+            mult = 1.0
+        return max(1, round(self.velocity * mult))
+
     def _move_right(self):
-        self.location_x += self.velocity
-        self.top_left_x += self.velocity
+        self.location_x += self._step()
+        self.top_left_x += self._step()
 
     def _move_left(self):
-        self.location_x -= self.velocity
-        self.top_left_x -= self.velocity
+        self.location_x -= self._step()
+        self.top_left_x -= self._step()
 
     def _move_up(self):
-        self.location_y -= self.velocity
-        self.top_left_y -= self.velocity
+        self.location_y -= self._step()
+        self.top_left_y -= self._step()
 
     def _move_down(self):
-        self.location_y += self.velocity
-        self.top_left_y += self.velocity
+        self.location_y += self._step()
+        self.top_left_y += self._step()
 
     def _check_borders_ahead(self):
         pass
