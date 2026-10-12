@@ -14,6 +14,7 @@ os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
 import random
+from rl_env.bots import SkillBot
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
@@ -31,7 +32,8 @@ class PacmanGhostEnv(gym.Env):
     metadata = {"render_modes": []}
 
     def __init__(self, curriculum_distance=None, solo_ghost=False,
-                 scripted_trained_ghost=False, nav_obs=False):
+                 scripted_trained_ghost=False, nav_obs=False,
+                 player_bot_skills=None):
         super().__init__()
         self.action_space = spaces.Discrete(4)
         self.nav_obs = nav_obs
@@ -50,6 +52,8 @@ class PacmanGhostEnv(gym.Env):
         self.curriculum_distance = curriculum_distance
         self.solo_ghost = solo_ghost
         self.scripted_trained_ghost = scripted_trained_ghost
+        self.player_bot_skills = player_bot_skills
+        self._player_bot = None
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -60,6 +64,14 @@ class PacmanGhostEnv(gym.Env):
 
         # Skip the READY! counter to speed up training.
         self.engine.player.set_to_chase()
+        
+        # If training against bots, pick a random skill for this episode and
+        # make a FRESH bot (so no stale memory carries over between episodes).
+        if self.player_bot_skills:
+            skill = random.choice(self.player_bot_skills)
+            self._player_bot = SkillBot(skill, seed=random.randint(0, 1_000_000))
+        else:
+            self._player_bot = None
 
         if self.curriculum_distance is not None:
             row, col = sample_tile_at_distance(self.curriculum_distance)
@@ -78,8 +90,11 @@ class PacmanGhostEnv(gym.Env):
     def step(self, action):
         direction = Direction(int(action))
 
-        # Random player movement (engine.direction_command otherwise never changes).
-        self.engine.direction_command = random.choice(list(Direction))
+        # Drive the player: a bot if training against bots, else random moves.
+        if self._player_bot is not None:
+            self.engine.direction_command = self._player_bot.choose(self.engine)
+        else:
+            self.engine.direction_command = random.choice(list(Direction))
 
         self.engine.render_level()
         self.engine.draw_misc()
