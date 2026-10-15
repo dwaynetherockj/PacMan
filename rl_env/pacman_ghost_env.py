@@ -47,6 +47,7 @@ class PacmanGhostEnv(gym.Env):
         self.ghost = None
         self.step_count = 0
         self._prev_lives = None
+        self._prev_dist = None
         self._prev_score = None
         self._catcher = None
         self.curriculum_distance = curriculum_distance
@@ -82,6 +83,7 @@ class PacmanGhostEnv(gym.Env):
 
         self.step_count = 0
         self._prev_lives = self.engine.player.lives
+        self._prev_dist = None
         self._prev_score = self.engine.level.score
         self._catcher = None
 
@@ -172,17 +174,24 @@ class PacmanGhostEnv(gym.Env):
     def _compute_reward(self):
         reward = 0.0
 
+        # 1. Big reward for an actual catch by THIS ghost.
         lives_now = self.engine.player.lives
         if lives_now < self._prev_lives:
-            # Reward only catches made by the trained ghost itself.
             if self._catcher == type(self.ghost).__name__:
                 reward += 10.0
         self._prev_lives = lives_now
 
+        # 2. Reward for CLOSING the gap this tick (credit assignment).
+        #    Compare this tick's distance to last tick's.
         dist = self._distance_to_player()
-        reward += -0.001 * dist  # closer = less negative = better
+        if self._prev_dist is not None:
+            # got closer -> positive, got further -> negative
+            reward += 0.05 * (self._prev_dist - dist)
+        self._prev_dist = dist
 
-        reward -= 0.01  # small per-tick cost so catching sooner is preferred
+        # 3. Small bonus for simply being close, so it stays on the player.
+        if dist < self.engine.tile_width * 3:
+            reward += 0.02
 
         return reward
 
