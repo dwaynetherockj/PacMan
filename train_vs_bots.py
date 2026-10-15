@@ -31,7 +31,7 @@ BOT_SKILLS = [0.0, 0.25, 0.5, 0.75, 1.0]   # the mix
 STEPS_PER_PHASE = 100_000
 NUM_PHASES = 6
 START_DISTANCE = 3
-NAME = "ghost_vs_bots"
+NAME = "ghost_vs_bots_team"
 TRAINED_NAME = "Blinky"
 
 PHASE_DISTANCES = [
@@ -45,12 +45,15 @@ class CatchCounterCallback(BaseCallback):
     def __init__(self):
         super().__init__()
         self.own = 0
+        self.team = 0
         self.episodes = 0
 
     def _on_step(self) -> bool:
         for info, done in zip(self.locals["infos"], self.locals["dones"]):
-            if info.get("caught") and info.get("caught_by") == TRAINED_NAME:
-                self.own += 1
+            if info.get("caught"):
+                self.team += 1
+                if info.get("caught_by") == TRAINED_NAME:
+                    self.own += 1
             if done:
                 self.episodes += 1
         return True
@@ -59,7 +62,7 @@ class CatchCounterCallback(BaseCallback):
 def make_env(distance):
     def _make():
         return Monitor(PacmanGhostEnv(curriculum_distance=distance,
-                                      solo_ghost=True,
+                                      solo_ghost= False,
                                       player_bot_skills=BOT_SKILLS))
     return DummyVecEnv([_make])
 
@@ -83,11 +86,12 @@ def main():
         counter = CatchCounterCallback()
         model.learn(total_timesteps=STEPS_PER_PHASE, callback=counter,
                     reset_num_timesteps=False)
-        rate = 100 * counter.own / max(counter.episodes, 1)
+        own_rate = 100 * counter.own / max(counter.episodes, 1)
+        team_rate = 100 * counter.team / max(counter.episodes, 1)
         print(f"Phase {phase_num}/{NUM_PHASES} distance {distance:>2}: "
-              f"{counter.episodes} episodes, Blinky catches {counter.own} "
-              f"({rate:.1f}% of episodes)", flush=True)
-
+              f"{counter.episodes} episodes | our ghost {counter.own} "
+              f"({own_rate:.1f}%) | whole team {counter.team} "
+              f"({team_rate:.1f}%)", flush=True)
     model.save(NAME)
     vec_env.save(f"{NAME}_stats.pkl")
     if os.path.exists(tmp):
