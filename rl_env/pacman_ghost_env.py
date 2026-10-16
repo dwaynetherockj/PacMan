@@ -33,7 +33,7 @@ class PacmanGhostEnv(gym.Env):
 
     def __init__(self, curriculum_distance=None, solo_ghost=False,
                  scripted_trained_ghost=False, nav_obs=False,
-                 player_bot_skills=None):
+                 player_bot_skills=None, cohort="hardcore"):
         super().__init__()
         self.action_space = spaces.Discrete(4)
         self.nav_obs = nav_obs
@@ -54,6 +54,7 @@ class PacmanGhostEnv(gym.Env):
         self.solo_ghost = solo_ghost
         self.scripted_trained_ghost = scripted_trained_ghost
         self.player_bot_skills = player_bot_skills
+        self.cohort = cohort
         self._player_bot = None
 
     def reset(self, seed=None, options=None):
@@ -173,25 +174,41 @@ class PacmanGhostEnv(gym.Env):
 
     def _compute_reward(self):
         reward = 0.0
+        casual = (self.cohort == "casual")
 
-        # 1. Big reward for an actual catch by THIS ghost.
+        # Tunable values per cohort.
+        catch_reward      = 5.0  if casual else 10.0   # casual: smaller prize
+        closing_reward    = 0.03 if casual else 0.05   # casual: weaker pull
+        step_penalty      = 0.005 if casual else 0.01  # casual: less time pressure
+        stay_near_bonus   = 0.02 if casual else 0.0    # casual: small capped stay-near
+
+        # 1. Catch reward (by THIS ghost). Casual catches still pay well,
+        #    just less than hardcore. Catching always beats not catching.
         lives_now = self.engine.player.lives
         if lives_now < self._prev_lives:
             if self._catcher == type(self.ghost).__name__:
-                reward += 10.0
+                got = catch_reward
+                # Hardcore gets a bonus for catching FAST; casual gets a
+                # REDUCED bonus for very early catches (never a penalty).
+                if not casual and self.step_count < 200:
+                    got += 5.0 * (1 - self.step_count / 200)   # up to +5 for speed
+                reward += got
         self._prev_lives = lives_now
 
-        # 2. Reward for CLOSING the gap this tick (credit assignment).
-        #    Compare this tick's distance to last tick's.
+        # 2. Closing-the-gap reward (credit assignment). Based on IMPROVEMENT,
+        #    so a ghost cannot farm it by sitting still.
         dist = self._distance_to_player()
         if self._prev_dist is not None:
-            # got closer -> positive, got further -> negative
-            reward += 0.05 * (self._prev_dist - dist)
+            reward += closing_reward * (self._prev_dist - dist)
         self._prev_dist = dist
 
-        # 3. Small bonus for simply being close, so it stays on the player.
-        if dist < self.engine.tile_width * 3:
-            reward += 0.02
+        # 3. Casual only: a small, CAPPED stay-near bonus so it keeps pressure
+        #    without farming (capped means it can't stack up by hovering).
+        if stay_near_bonus > 0 and dist < self.engine.tile_width * 3:
+            reward += stay_near_bonus
+
+        # 4. Time penalty (smaller for casual, so it's less frantic).
+        reward -= step_penalty
 
         return reward
 
