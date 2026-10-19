@@ -43,6 +43,7 @@ class GameEngine:
         self.pause = False
         self.start_counter = 0
         self.game_over = False
+        self.ghost_policy = None   # if set, ghosts use this instead of scripted AI
 
     def show_game_over(self):
         self.screen.fill((0, 0, 0))
@@ -137,7 +138,11 @@ class GameEngine:
 
     def move_ghosts(self):
         for ghost in self.ghosts:
-            ghost.follow_target()
+            if self.ghost_policy is not None:
+                direction = self.ghost_policy(ghost)
+                ghost.follow_target(action_direction=direction)
+            else:
+                ghost.follow_target()
 
     def reset_ghosts(self):
         for ghost in self.ghosts:
