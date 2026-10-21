@@ -24,7 +24,7 @@ from rl_env.bots import SkillBot
 from model.direction import Direction
 
 SKILLS = [0.0, 0.25, 0.5, 0.75, 1.0]
-GAMES_PER_SKILL = 30
+GAMES_PER_SKILL = 140
 MAX_TICKS = 10000
 OUT = "player_data.csv"
 
@@ -39,7 +39,7 @@ def band(skill):
     return "hardcore"
 
 
-def play_and_summarise(skill, seed, writer):
+def play_and_summarise(skill, seed, writer, game_id):
     random.seed(seed)
     game = Game()
     engine = game.game_engine
@@ -103,7 +103,7 @@ def play_and_summarise(skill, seed, writer):
 
         # a life was just lost -> write the summary, start a new life
         if engine.player.lives < lives_seen:
-            write_life(writer, skill, life, engine, board)
+            write_life(writer, skill, life, engine, board, game_id)
             lives_seen = engine.player.lives
             life = fresh()
             prev_dir = None
@@ -112,12 +112,13 @@ def play_and_summarise(skill, seed, writer):
             break
 
 
-def write_life(writer, skill, life, engine, board):
+def write_life(writer, skill, life, engine, board, game_id):
     ticks = max(life["ticks"], 1)
     score_gained = engine.level.score - life["score_start"]
     pellets_now = int(((board == 1) | (board == 2)).sum())
     pellets_eaten = life["pellets_start"] - pellets_now
     writer.writerow([
+        game_id,
         round(skill, 2), band(skill),
         ticks,
         round(score_gained / ticks, 4),            # score rate
@@ -137,12 +138,14 @@ def main():
     with open(OUT, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow([
-            "skill", "band", "life_ticks", "score_rate", "pellets_eaten",
+            "game_id", "skill", "band", "life_ticks", "score_rate", "pellets_eaten",
             "pellet_rate", "blue_eaten", "avg_ghost_dist", "near_ghost_ticks",
             "reversal_rate", "pellet_efficiency", "reaction_ticks", "ate_blue"])
+        game_id = 0
         for skill in SKILLS:
             for g in range(GAMES_PER_SKILL):
-                play_and_summarise(skill, seed=g, writer=writer)
+                play_and_summarise(skill, seed=g, writer=writer, game_id=game_id)
+                game_id += 1
             print(f"skill {skill:.2f} done", flush=True)
     print(f"Saved {OUT}")
 
