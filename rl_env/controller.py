@@ -27,13 +27,15 @@ BAND_SETTINGS = {
 
 
 class AdaptiveController:
-    def __init__(self, engine, model_path="player_model.joblib"):
+    def __init__(self, engine, model_path="player_model_2class.joblib"):
         self.engine = engine
         bundle = joblib.load(model_path)
         self.model = bundle["model"]
         self.features = bundle["features"]
         self.current_band = "middle"       # start neutral
         self.history = []                  # (life_number, band) for later analysis
+        self.feature_history = []          # recent lives' features, for smoothing
+        self.smooth_window = 3             # average over up to 3 recent lives
         self._life = None
         self._lives_seen = engine.player.lives
         self._prev_dir = None
@@ -105,7 +107,11 @@ class AdaptiveController:
             "near_ghost_ticks": life["near_ghost_ticks"],
             "score_rate": score_rate,
         }
-        X = np.array([[feat[f] for f in self.features]])
+        # Remember this life, then average over the last few lives (smoothing).
+        self.feature_history.append(feat)
+        recent = self.feature_history[-self.smooth_window:]
+        avg = {f: sum(h[f] for h in recent) / len(recent) for f in self.features}
+        X = np.array([[avg[f] for f in self.features]])
         return self.model.predict(X)[0]
 
     def _apply(self, band):
