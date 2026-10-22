@@ -54,12 +54,11 @@ def main():
             r = play(pskill, seed=s)
             all_bands += r["guesses"]
         # count how often each band was chosen
-        counts = {b: all_bands.count(b) for b in ["casual", "middle", "hardcore"]}
+        counts = {b: all_bands.count(b) for b in ["casual", "skilled"]}
         total = sum(counts.values()) or 1
         print(f"{pname} player -> difficulty chosen across all lives: {counts}")
         print(f"   (casual {100*counts['casual']//total}%, "
-              f"middle {100*counts['middle']//total}%, "
-              f"hardcore {100*counts['hardcore']//total}%)\n")
+              f"skilled {100*counts['skilled']//total}%)\n")
 
 
 if __name__ == "__main__":

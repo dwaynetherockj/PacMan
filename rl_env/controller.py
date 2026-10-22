@@ -21,8 +21,7 @@ OPPOSITE = {"UP": "DOWN", "DOWN": "UP", "LEFT": "RIGHT", "RIGHT": "LEFT"}
 # the three trained cohort ghosts exist.
 BAND_SETTINGS = {
     "casual":   {"ghost_speed_mult": 0.75},   # slower, easier
-    "middle":   {"ghost_speed_mult": 1.00},   # normal
-    "hardcore": {"ghost_speed_mult": 1.25},   # faster, harder
+    "skilled":  {"ghost_speed_mult": 1.25},   # faster, harder
 }
 
 
@@ -32,7 +31,7 @@ class AdaptiveController:
         bundle = joblib.load(model_path)
         self.model = bundle["model"]
         self.features = bundle["features"]
-        self.current_band = "middle"       # start neutral
+        self.current_band = "casual"       # start gentle until we've judged the player
         self.history = []                  # (life_number, band) for later analysis
         self.feature_history = []          # recent lives' features, for smoothing
         self.smooth_window = 3             # average over up to 3 recent lives
