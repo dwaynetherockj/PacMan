@@ -44,6 +44,7 @@ class GameEngine:
         self.start_counter = 0
         self.game_over = False
         self.ghost_policy = None   # if set, ghosts use this instead of scripted AI
+        self.game_won = False
 
     def show_game_over(self):
         self.screen.fill((0, 0, 0))
@@ -67,7 +68,24 @@ class GameEngine:
                          (self.screen.get_width() / 2 + self.screen.get_width() / 16,
                           self.screen.get_height() / 2 + self.screen.get_height() / 6))
 
+    def _pellets_left(self):
+        board = self.player.board
+        return int(((board == 1) | (board == 2)).sum())
+
+    def show_win_screen(self):
+        self.screen.fill((0, 0, 0))
+        font = pygame.font.SysFont('arial', 40)
+        title = font.render('Board Cleared!', True, 'yellow')
+        restart_button = font.render('Hit Space to play again', True, (255, 255, 255))
+        self.screen.blit(title, (self.screen.get_width() / 2 - title.get_width() / 2,
+                                 self.screen.get_height() / 2 - title.get_height() / 3))
+        self.screen.blit(restart_button, (self.screen.get_width() / 2 - restart_button.get_width() / 2,
+                                          self.screen.get_height() / 1.9 + restart_button.get_height()))
+
     def tick(self):
+        if self.game_won:
+            self.show_win_screen()
+            return
         if self.player.lives == -1:
             self.game_over = True
             self.show_game_over()
@@ -88,6 +106,9 @@ class GameEngine:
                 self.move_player()
                 self.move_ghosts()
                 self.check_ghosts_and_player_collision()
+                if self._pellets_left() == 0:
+                    self.game_won = True
+                    self.game_over = True
             elif self.player.is_eaten():
                 self.player.play_death_animation(self.screen)
             if DEBUG:
