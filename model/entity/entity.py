@@ -39,10 +39,7 @@ class Entity:
         pass
 
     def _step(self):
-        mult = getattr(self, "speed_mult", 1.0)
-        if mult <= 0 or mult != mult:   # guard against 0 or NaN
-            mult = 1.0
-        return max(1, round(self.velocity * mult))
+        return self.velocity
 
     def _move_right(self):
         self.location_x += self._step()
