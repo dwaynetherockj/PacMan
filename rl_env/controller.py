@@ -46,6 +46,7 @@ class AdaptiveController:
         self._life = {
             "ticks": 0,
             "score_start": e.level.score,
+            "pellets_start": self._pellets_left(),
             "reversals": 0,
             "near_ghost_ticks": 0,
             "blue_eaten": 0,
@@ -53,6 +54,10 @@ class AdaptiveController:
             "reaction_ticks": None,
         }
         self._prev_dir = None
+
+    def _pellets_left(self):
+        board = self.engine.player.board
+        return int(((board == 1) | (board == 2)).sum())
 
     def update(self):
         """Call once per tick, after engine.tick()."""
@@ -105,6 +110,8 @@ class AdaptiveController:
             "ate_blue": 1.0 if life["blue_eaten"] > 0 else 0.0,
             "near_ghost_ticks": life["near_ghost_ticks"],
             "score_rate": score_rate,
+            "score_this_life": self.engine.level.score - life["score_start"],
+            "pellets": life["pellets_start"] - self._pellets_left(),
         }
         # Remember this life, then average over the last few lives (smoothing).
         self.feature_history.append(feat)
@@ -118,3 +125,9 @@ class AdaptiveController:
         mult = BAND_SETTINGS[band]["ghost_speed_mult"]
         for g in self.engine.ghosts:
             g.speed_mult = mult
+
+    def close_final_life(self):
+        """Record the life in progress when the game ends by clearing the board."""
+        if self._life and self._life["ticks"] > 0:
+            band = self._classify(self._life)
+            self.history.append((len(self.history) + 1, band))
