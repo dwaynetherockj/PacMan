@@ -19,6 +19,7 @@ class Ghost(Entity):
                  velocity=DEFAULT_VELOCITY):
         super().__init__(center_position, turns, space_params, velocity)
         self.speed_mult = 1.0   # adaptive controller scales this; 1.0 = normal
+        self.move_credit = 0.0  # builds up each tick; a whole 1 = one move
         # sprites
         self.assets = assets
         self.eaten_assets = eaten_assets
@@ -171,6 +172,23 @@ class Ghost(Entity):
         else:
             self.runaway = False
 
+        # Speed dial. The step size never changes, so ghosts stay lined up
+        # with the maze. The ghost moves more or less OFTEN instead.
+        # It only applies while hunting (chase or scatter). Frightened and
+        # eaten ghosts always move exactly as in the original game.
+        if self.is_chasing() or self.is_scatter():
+            self.move_credit += self.speed_mult
+            moves = int(self.move_credit)
+            self.move_credit -= moves
+        else:
+            moves = 1
+
+        for n in range(moves):
+            if n > 0:
+                self._check_borders_ahead()
+            self._move_once(action_direction)
+
+    def _move_once(self, action_direction=None):
         right_distance = self.calc_distance(self.location_x + self.space_params.tile_width, self.location_y)
         left_distance = self.calc_distance(self.location_x - self.space_params.tile_width, self.location_y)
         up_distance = self.calc_distance(self.location_x, self.location_y - self.space_params.tile_height)
