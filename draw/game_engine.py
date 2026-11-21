@@ -13,6 +13,7 @@ import math
 
 from model.entity.player.player import Player
 from settings import *
+from timers import set_timer_once
 
 PI = math.pi
 
@@ -124,7 +125,7 @@ class GameEngine:
                     ghost.set_to_eaten()
                 elif ghost.is_chasing() or ghost.is_scatter():
                     pygame.time.wait(500)
-                    pygame.time.set_timer(PLAYER_EATEN_EVENT, 1, True)
+                    set_timer_once(PLAYER_EATEN_EVENT, 1)
                     self.player.set_to_eaten()
 
     def play_ghost_runsaway_sound(self):
@@ -204,50 +205,65 @@ class GameEngine:
 
     def render_level(self):
         self.__calculate_flick()
+        # The walls never change, so they are drawn once onto their own layer
+        # and copied each frame. Only the dots are drawn fresh, because they
+        # disappear as they are eaten.
+        if getattr(self, "_wall_layer", None) is None:
+            self._build_wall_layer()
+        self.screen.blit(self._wall_layer, (0, 0))
+        for i, j, center in self._dot_cells:
+            cell = self.board[i][j]
+            if cell == BoardStructure.DOT.value:
+                pygame.draw.circle(self.screen, self.level.gate_color, center, 4)
+            elif cell == BoardStructure.BIG_DOT.value and not self.flick:
+                pygame.draw.circle(self.screen, self.level.gate_color, center, 10)
+
+    def _build_wall_layer(self):
+        layer = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
+        self._dot_cells = []
         for i, row in enumerate(self.board):
             for j, cell in enumerate(self.board[i]):
                 x, y = j * self.tile_width, i * self.tile_height
                 center = (x + self.tile_width / 2, y + self.tile_height / 2)
-                if cell == BoardStructure.DOT.value:
-                    pygame.draw.circle(self.screen, self.level.gate_color, center, 4)
-                elif cell == BoardStructure.BIG_DOT.value and not self.flick:
-                    pygame.draw.circle(self.screen, self.level.gate_color, center, 10)
+                if cell == BoardStructure.DOT.value or cell == BoardStructure.BIG_DOT.value:
+                    self._dot_cells.append((i, j, center))
                 elif cell == BoardStructure.VERTICAL_WALL.value:
-                    pygame.draw.line(self.screen, self.level.wall_color, (x + self.tile_width / 2, y),
+                    pygame.draw.line(layer, self.level.wall_color, (x + self.tile_width / 2, y),
                                      (x + self.tile_width / 2, y + self.tile_height), 3)
                 elif cell == BoardStructure.HORIZONTAL_WALL.value:
-                    pygame.draw.line(self.screen, self.level.wall_color, (x, y + self.tile_height / 2),
+                    pygame.draw.line(layer, self.level.wall_color, (x, y + self.tile_height / 2),
                                      (x + self.tile_width, y + self.tile_height / 2), 3)
                 elif cell == BoardStructure.TOP_RIGHT_CORNER.value:
-                    pygame.draw.arc(self.screen, self.level.wall_color,
+                    pygame.draw.arc(layer, self.level.wall_color,
                                     [(j * self.tile_width - (self.tile_width * 0.4)) - 2,
                                      (i * self.tile_height + (0.5 * self.tile_height)), self.tile_width,
                                      self.tile_height],
                                     0, PI / 2, 3)
                 elif cell == BoardStructure.TOP_LEFT_CORNER.value:
-                    pygame.draw.arc(self.screen, self.level.wall_color,
+                    pygame.draw.arc(layer, self.level.wall_color,
                                     [(j * self.tile_width + (self.tile_width * 0.5)),
                                      (i * self.tile_height + (0.5 * self.tile_height)),
                                      self.tile_width, self.tile_height], PI / 2, PI,
                                     3)
                 elif cell == BoardStructure.BOTTOM_LEFT_CORNER.value:
-                    pygame.draw.arc(self.screen, self.level.wall_color,
+                    pygame.draw.arc(layer, self.level.wall_color,
                                     [(j * self.tile_width + (self.tile_width * 0.5)),
                                      (i * self.tile_height - (0.4 * self.tile_height)),
                                      self.tile_width, self.tile_height], PI,
                                     3 * PI / 2, 3)
                 elif cell == BoardStructure.BOTTOM_RIGHT_CORNER.value:
-                    pygame.draw.arc(self.screen, self.level.wall_color,
+                    pygame.draw.arc(layer, self.level.wall_color,
                                     [(j * self.tile_width - (self.tile_width * 0.4)) - 2,
                                      (i * self.tile_height - (0.4 * self.tile_height)), self.tile_width,
                                      self.tile_height],
                                     3 * PI / 2,
                                     2 * PI, 3)
                 elif cell == BoardStructure.GATE.value:
-                    pygame.draw.line(self.screen, self.level.gate_color,
+                    pygame.draw.line(layer, self.level.gate_color,
                                      (j * self.tile_width, i * self.tile_height + (0.5 * self.tile_height)),
                                      (j * self.tile_width + self.tile_width,
                                       i * self.tile_height + (0.5 * self.tile_height)), 3)
+        self._wall_layer = layer
 
     def debug(self):
         self.debug_grid()
