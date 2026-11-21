@@ -8,6 +8,7 @@ from model.entity.player.player import Player
 from model.space_params.space_params import SpaceParams
 from model.turns import Turns
 from settings import *
+from timers import set_timer_once
 
 
 class Ghost(Entity):
@@ -90,7 +91,7 @@ class Ghost(Entity):
     def set_to_eaten(self):
         delay = self.sfx.ghost_eaten.get_length()
         self.sfx.ghost_eaten.play()
-        pygame.time.set_timer(GHOST_EATEN_EVENT, int(delay * 1000), True)
+        set_timer_once(GHOST_EATEN_EVENT, int(delay * 1000))
         self.state = self.State.EATEN
         self.velocity = FAST_VELOCITY
 
