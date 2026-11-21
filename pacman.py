@@ -1,4 +1,5 @@
 import sys
+import timers
 from model.board_definition import BoardDefinition
 from model.level_config import LevelConfig
 from settings import *
@@ -9,7 +10,9 @@ from model.direction import Direction
 class Game:
     def __init__(self):
         pygame.init()
-        self.screen = pygame.display.set_mode(RESOLUTION)
+        self.game_surface = pygame.Surface(RESOLUTION)
+        self.screen = self.game_surface 
+        self.display = pygame.display.set_mode((630, 693))
         self.timer = pygame.time.Clock()
         self.game_engine = self.init()
         self.game_start_sfx = pygame.mixer.Sound('media/game_start.wav')
@@ -25,12 +28,19 @@ class Game:
     def update(self):
         self.timer.tick(FPS)
         self.game_engine.tick()
+        self.display.blit(
+            pygame.transform.smoothscale(
+                self.game_surface, (630, 693)
+            ),
+            (0, 0)
+        )
         pygame.display.flip()
 
     def draw(self):
         self.screen.fill([12, 2, 25])
 
     def check_events(self):
+        timers.fire_due()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
